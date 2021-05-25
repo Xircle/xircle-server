@@ -1,18 +1,31 @@
-module.exports = (app)=>{
-    const post = require('../controllers/postController');
-    const {upload,verify,resize}=require('../utils/middleware');
+import express from 'express';
+import {
+    getPost,
+    postPost,
+    updatePost,
+    deletePost,
+    searchHashtag,
+    searchPost
+} from '../controllers/postController';
+import {
+    upload,
+    verify,
+    resize
+} from '../utils/middleware';
 
-    
-    app.post('/post',verify,upload.single('articleImgSrc'),resize,post.postPost);
-    
-    app.get('/post/user/:userId',verify,post.getPost);
+const postRouter = express.Router();
 
-    app.put('/post/:postId',verify,upload.single('articleImgSrc'),resize,post.updatePost);
+postRouter.post('/', verify, upload.single('articleImgSrc'), resize, postPost);
 
-    app.delete('/post/:postId',verify,post.deletePost);
+postRouter.get('/user/:userId', verify, getPost);
 
-    app.get('/post/search/tag',verify,post.searchHashtag);
-    app.get('/post/search',verify,post.searchPost);
+postRouter.put('/:postId', verify, upload.single('articleImgSrc'), resize, updatePost);
 
-    //app.patch('/post/:postId/like',verify,post.likePost);
-}
+postRouter.delete('/:postId', verify, deletePost);
+
+postRouter.get('/search/tag', verify, searchHashtag);
+postRouter.get('/search', verify, searchPost);
+
+//postRouter.patch('/:postId/like',verify,likePost);
+
+export default postRouter;

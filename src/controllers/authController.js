@@ -1,29 +1,23 @@
-let User = require('../models/User');
-let Post = require('../models/Post');
-let mongoose = require('mongoose');
+import User from '../models/User';
+import Post from '../models/Post';
+import mongoose from 'mongoose';
 
-const dotenv = require('dotenv');
-dotenv.config();
-const regexEmail = require('regex-email');
-const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
-const {startSession}=require('mongoose');
+import regexEmail from 'regex-email';
+import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
+import {startSession}from 'mongoose';
 //const fs=require('fs');
 //const path=require('path');
 //const redis=require('redis');
 //const client=redis.createClient(process.env.REDIS_URL);
 
-const {encrypt,decrypt}=require('../utils/function');
+import {encrypt,decrypt} from '../utils/function';
 
 const webMails = ["snu.ac.kr","korea.ac.kr","yonsei.ac.kr","g.skku.edu","skku.edu","sogang.ac.kr","hanyang.ac.kr","kaist.ac.kr","postech.ac.kr"];
 const universitys=["서울대학교","고려대학교","연세대학교","성균관대학교","성균관대학교","서강대학교","한양대학교","카이스트","포스텍"];
 let authEmail=new Map();
 
-
-
-
-
-exports.checkEmail=async (req,res,next)=>{
+export const checkEmail = async (req,res,next)=>{
     const {email,code}=req.body;
 
     if(!email){
@@ -115,7 +109,7 @@ exports.checkEmail=async (req,res,next)=>{
     }
 }
 
-exports.sendEmail=async (req,res,next)=>{
+export const sendEmail = async (req,res,next)=>{
 
     const {email}=req.body;
 
@@ -254,7 +248,7 @@ exports.sendEmail=async (req,res,next)=>{
 
 
 
-exports.checkName=async (req,res,next)=>{
+export const checkName = async (req,res,next)=>{
 
     const {displayName}=req.body;
     if(!displayName){
@@ -299,7 +293,7 @@ exports.checkName=async (req,res,next)=>{
 }
 
 
-exports.postUser=async (req,res,next)=>{
+export const postUser = async (req,res,next)=>{
 
     req.body.data=JSON.parse(req.body.data);
 
@@ -599,7 +593,7 @@ exports.postUser=async (req,res,next)=>{
     }
 }
 
-exports.login=async (req,res,next)=>{
+export const login = async (req,res,next)=>{
     const {password,displayName}=req.body;
 
     
@@ -688,7 +682,7 @@ exports.login=async (req,res,next)=>{
 
 
 
-exports.findInfo=async (req,res,next)=>{
+export const findInfo = async (req,res,next)=>{
     const {email}=req.body;
 
     if(!email){
@@ -809,5 +803,4 @@ exports.findInfo=async (req,res,next)=>{
         next(err);
     }
 }
-
 

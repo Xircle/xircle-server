@@ -1,13 +1,17 @@
-module.exports = (app)=>{
-    const profile = require('../controllers/profileController');
-    const {upload,verify,resize}=require('../utils/middleware');
+import express from 'express';
+import { getProfile, getPost, updateProfile } from '../controllers/profileController';
+import {
+    upload,
+    verify,
+    resize
+} from '../utils/middleware';
 
-   
+const profileRouter = express.Router();
 
-    app.get('/user/:userId/profile',verify,profile.getProfile);
+profileRouter.get('/:userId/profile', verify, getProfile);
 
+profileRouter.get('/:userId/profile/post', verify, getPost);
 
-    app.get('/user/:userId/profile/post',verify,profile.getPost);
+profileRouter.put('/profile', upload.single('profileImgSrc'), resize, verify, updateProfile);
 
-    app.put('/user/profile',upload.single('profileImgSrc'),resize,verify,profile.updateProfile);
-}
+export default profileRouter;

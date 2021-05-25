@@ -1,7 +1,12 @@
-module.exports = (app)=>{
-    const chat = require('../controllers/chatController');
-    const {verify}=require('../utils/middleware');
+import express from 'express';
+import {} from '../controllers/chatController';
+const {
+    verify
+} = require('../utils/middleware');
 
-    //app.get('/chat',verify,chat.getChat);
-    //app.post('/message',verify,createRoom);
-}
+const chatRouter = express.Router();
+
+chatRouter.get('/',verify,chat.getChat);
+chatRouter.post('/message',verify,createRoom);
+
+export default chatRouter;
