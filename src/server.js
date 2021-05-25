@@ -3,6 +3,11 @@ import path from 'path';
 import compression from 'compression';
 import cors from 'cors';
 import methodOverride from 'method-override';
+import postRouter from './routers/postRouter';
+import authRouter from './routers/authRouter';
+import profileRouter from './routers/profileRouter';
+import userRouter from './routers/userRouter';
+import chatRouter from './routers/chatRouter';
 
 const app = express();
 
@@ -19,14 +24,11 @@ app.use(methodOverride());
 app.use(cors());
 
 app.use('/admin', adminRouter);
-app.use('/auth', )
-
-require('./src/routers/chatRouter')(app);
-require('./src/routers/adminRouter')(app);
-require('./src/routers/authRouter')(app);
-require('./src/routers/profileRouter')(app);
-require('./src/routers/postRouter')(app);
-require('./src/routers/userRouter')(app);
+app.use('/auth', authRouter);
+app.use('/post', postRouter);
+app.use('/profile', profileRouter);
+app.use('/user', userRouter);
+app.use('/chat', chatRouter);
 
 app.get('/', (req, res) => {
     return res.send("hello developers");
