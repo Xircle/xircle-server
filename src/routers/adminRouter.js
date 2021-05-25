@@ -1,15 +1,28 @@
-module.exports = (app)=>{
-    const admin = require('../controllers/adminController');
-    const {upload,resize}=require('../utils/middleware');
+import {
+    getUser,
+    postUser,
+    patchUser,
+    deleteUser,
+    getPost,
+    deletePost,
+    update,
+    update1
+} from '../controllers/authController';
 
-    app.get('/admin/users',admin.getUser);
-    app.post('/admin/user',upload.single('profileImgSrc'),admin.postUser);
-    app.patch('/admin/user/:userId',upload.single('profileImgSrc'),admin.patchUser);
-    app.delete('/admin/user/:userId',admin.deleteUser);
-    app.get('/admin/posts',admin.getPost);
-    app.delete('/admin/post/:postId',admin.deletePost);
+import {
+    upload,
+} from '../utils/middleware';
 
-    app.post('/admin/update',admin.update);
-    app.get('/admin/update',admin.update1);
+const adminRouter = express.Router();
 
-}
+adminRouter.get('/users', getUser);
+adminRouter.post('/user', upload.single('profileImgSrc'), postUser);
+adminRouter.patch('/user/:userId', upload.single('profileImgSrc'), patchUser);
+adminRouter.delete('/user/:userId', deleteUser);
+adminRouter.get('/posts', getPost);
+adminRouter.delete('/post/:postId', deletePost);
+
+adminRouter.post('/update', update);
+adminRouter.get('/update', update1);
+
+export default adminRouter;

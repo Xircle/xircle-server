@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose';
 
 const ChatSchema = new mongoose.Schema({
     message:String,
@@ -7,4 +7,4 @@ const ChatSchema = new mongoose.Schema({
     createdAt : {type:Date , default: Date.now},
 })
 const model = mongoose.model("Chat",ChatSchema);
-module.exports = model;
+export default model;
