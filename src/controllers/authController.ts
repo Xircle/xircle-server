@@ -1,3 +1,199 @@
+import express from 'express';
+import {CheckEmailDto,CheckNameDto,SendEmailDto,PostUserDto,PostUserData} from '../dtos/AuthDto';
+import {validationMiddleware,validationDataMiddleware} from '../utils/validation.middleware';
+import HttpException from '../utils/HttpException';
+import User from '../models/User';
+import mongoose from 'mongoose';
+import SuccessDto from '../dtos/SuccessDto';
+
+
+const webMails:string[] = ["snu.ac.kr","korea.ac.kr","yonsei.ac.kr","g.skku.edu","skku.edu","sogang.ac.kr","hanyang.ac.kr","kaist.ac.kr","postech.ac.kr"];
+const universitys:string[] = ["서울대학교","고려대학교","연세대학교","성균관대학교","성균관대학교","서강대학교","한양대학교","카이스트","포스텍"];
+const authEmail=new Map<string,number>();
+
+
+class AuthController{
+    public path='/';
+    public router=express.Router();
+
+    constructor(){
+        this.initializeRoutes();
+    }
+
+    public initializeRoutes(){
+        this.router.post(this.path+'check/email',validationMiddleware(CheckEmailDto),this.checkEmail);
+        this.router.post(this.path+'check/name',validationMiddleware(CheckNameDto),this.checkName);
+        this.router.post(this.path+'email',validationMiddleware(SendEmailDto),this.sendEmail);
+        this.router.post(this.path+'user',validationMiddleware(PostUserDto),validationDataMiddleware(PostUserData),this.postUser);
+        
+    }
+
+        
+    checkEmail=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+
+        const {email,code}=req.body;
+
+        if(!webMails.includes(email.split("@")[1])){
+            return next(new HttpException(412,"학교 이메일이 아닙니다"));
+        }
+
+        try{
+
+            const user=await User.findOne({email:email}).select('_id');
+            
+            if(user){
+                return next(new HttpException(450,"이메일 중복입니다"));
+            }
+
+            if(authEmail.get(email)!=code){
+                authEmail.delete(email);
+                return next(new HttpException(453,"인증번호 일치하지않습니다"));
+            }
+
+            authEmail.delete(email);
+        
+            return res.json(new SuccessDto("이메일 인증성공"));
+
+        }
+        catch(err){
+            console.log(err);
+            return next(err);
+        }
+    
+    }
+
+    
+
+    checkName=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+        
+        const {displayName}=req.body;
+
+        try{
+            const user=await User.findOne({displayName:displayName}).select('_id');
+
+            if(user){
+                return next(new HttpException(452,"별명 중복입니다"));
+            }
+
+            return res.json(new SuccessDto("생성가능한 이름입니다"));
+
+        }
+        catch(err){
+            console.log(err);
+            next(err);
+        }
+    }
+
+
+    sendEmail=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+
+        const {email}=req.body;
+    
+            
+        if(!webMails.includes(email.split("@")[1])){
+            return next(new HttpException(412,"학교 이메일이 아닙니다"));
+        }
+    
+        try{
+    
+            const user=await User.findOne({email:email}).select('_id');
+
+            if(user){
+                return next(new HttpException(450,"이메일 중복입니다"));
+            }
+    
+            //client.set(email,process.env.REDIS_SECRET,'EX',90);
+    
+            let randomNumber=Math.floor(Math.random()*900000)+100000;
+            authEmail.set(email,randomNumber);
+    
+            const mailjet = require ('node-mailjet')
+            .connect(process.env.MAIL_JET1, process.env.MAIL_JET2);
+    
+            const request = mailjet
+            .post("send", {'version': 'v3.1'})
+            .request({
+            "Messages":[
+                {
+                "From": {
+                    "Email": "hyunjong8723@gmail.com",
+                    "Name": "Xircle"
+                },
+                "To": [
+                    {
+                    "Email": email
+                    }
+                ],
+                "Subject": "Xircle 메일",
+                "HTMLPart": `
+                <section style="max-width: 480px; margin: 0 auto; padding: 24px 12px 12px; border: none; background: #ffffff;">
+                <div style="border: 3px solid black;"></div>
+                <div style="margin-top: 50px;">
+                    <h1 style="font-size: 30px; font-weight: bold; line-height: 1.5;">
+                        XIRCLE <br/>
+                        학교확인 인증번호 입니다.
+                    </h1>
+                    
+                </div>
+                <div>
+                    <p style="font-size: 14px; line-height: 28px; ">안녕하세요. 새로운 네트워킹 서비스 XIRCLE을 이용해 주셔서 감사합니다. <span style="font-weight: 700;">${universitys[webMails.indexOf(email.split('@')[1])]} 인증을 완료하기 위해 아래 인증번호를 입력해주세요.</span> 한 번의 인증으로 XIRCLE을 경험해보세요!</p>
+                </div>
+                <div style="text-align: center; margin-top: 100px;">
+                    <div style="background-color: #1F1F1F; padding: 20px 120px; border-radius: 13px; outline-style: none;">
+                        <span style="color: white; font-size: 22px; font-weight: 700;">${randomNumber}</span>
+                    </div>
+                </div>
+                <div style="text-align: center; margin: 50px 0;">
+                    <p style="font-weight: 300;">문제가 있을 경우 카카오톡 채널[XIRCLE]로 문의주세요.</p>
+                    <a style="color: #BFBFBF; font-size: 20px; font-weight: 700; text-decoration: none; " href="https://pf.kakao.com/_kDxhtK">고객센터 바로가기</a>
+                </div>
+            </section>
+        
+                `
+                }
+            ]
+            })
+
+            request
+            .catch(() => {
+                return next(new HttpException(451,"메일전송 실패입니다"));
+            });
+            
+    
+            return res.json(new SuccessDto("메일전송 성공입니다"));
+    
+        }
+        catch(err){
+            console.log(err);
+            next(err);
+        }
+    }
+
+    
+
+    postUser=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+        try{
+
+
+            return res.json(new SuccessDto("유저 등록 성공"));
+        }
+        catch(err){
+            console.log(err);
+            next(err);
+        }
+    }
+    
+
+
+}
+
+export default AuthController;
+
+
+
+
+/*
+
 let User = require('../models/User');
 let Post = require('../models/Post');
 let mongoose = require('mongoose');
@@ -15,13 +211,8 @@ const {startSession}=require('mongoose');
 
 const {encrypt,decrypt}=require('../utils/function');
 
-const webMails = ["snu.ac.kr","korea.ac.kr","yonsei.ac.kr","g.skku.edu","skku.edu","sogang.ac.kr","hanyang.ac.kr","kaist.ac.kr","postech.ac.kr"];
-const universitys=["서울대학교","고려대학교","연세대학교","성균관대학교","성균관대학교","서강대학교","한양대학교","카이스트","포스텍"];
+
 let authEmail=new Map();
-
-
-
-
 
 exports.checkEmail=async (req,res,next)=>{
     const {email,code}=req.body;
@@ -86,27 +277,27 @@ exports.checkEmail=async (req,res,next)=>{
           
         
         
-        /*
-        client.get(email,(err,value)=>{
-            if(err) throw err;
+        
+        // client.get(email,(err,value)=>{
+        //     if(err) throw err;
 
         
-            if(value===process.env.REDIS_SECRET){
-                return res.json({
-                    message:'이메일 인증성공',
-                    success:true,
-                    code:200
-                });
-            }
+        //     if(value===process.env.REDIS_SECRET){
+        //         return res.json({
+        //             message:'이메일 인증성공',
+        //             success:true,
+        //             code:200
+        //         });
+        //     }
 
-            else{
-                return res.json({
-                    message:'이메일 인증실패',
-                    success:false,
-                    code:453
-                })
-            }
-        });*/
+        //     else{
+        //         return res.json({
+        //             message:'이메일 인증실패',
+        //             success:false,
+        //             code:453
+        //         })
+        //     }
+        // });
         
     }
     catch(err){
@@ -156,14 +347,14 @@ exports.sendEmail=async (req,res,next)=>{
                 message:"이메일 중복입니다"
             })
         }
-/*
-        let transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.GOOGLE_ACCOUNT,
-                pass: process.env.GOOGLE_PASSWORD
-            }
-        });*/
+
+        // let transporter = nodemailer.createTransport({
+        //     service: 'gmail',
+        //     auth: {
+        //         user: process.env.GOOGLE_ACCOUNT,
+        //         pass: process.env.GOOGLE_PASSWORD
+        //     }
+        // });
 
         
 
@@ -809,5 +1000,5 @@ exports.findInfo=async (req,res,next)=>{
         next(err);
     }
 }
-
+*/
 

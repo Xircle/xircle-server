@@ -3,30 +3,137 @@ let Room = require('../models/Room');
 let mongoose = require('mongoose');
 const moment=require('moment');
 
-exports.getChat=async(req,res,next)=>{
+exports.getChatRoom=async(req,res,next)=>{
+
+    const userId=mongoose.mongo.ObjectId(req.params.userId);
+
+    
+    if(String(userId)!=String(req.id)){
+        return res.json({
+            code:200,
+            success:true,
+            message:'접근 권한이 없습니다.'
+        });
+    }
+
+    const page=req.page;
+
     try{
+
+        const roomIds=await Room.find({
+            member:{
+                $elemMatch:{$eq:userId}
+            }
+        }).skip(page*8).limit(8).select('_id');
+
+
+        let result=[];
+
+        for(let _ of roomIds){
+            
+            let ob={};
+
+            const [chat]=await Chat.find({roomId:_._id})
+            .sort({"createdAt":-1}).limit(1);
+
+            
+            const user=await User.findOne({_id:chat.userId})
+            .select('profileImgSrc adj job displayName');
+
+            ob.profileImgSrc=user.profileImgSrc;
+            ob.adj=user.adj;
+            ob.job=user.job;
+            ob.displayName=user.displayName;
+            ob.message=chat.message;
+            ob.userId=chat.userId;
+            ob.createdAt=moment(chat.createdAt).format('YY/MM/DD HH:mm');
+            
+            result.push(ob);
+        }
 
         return res.json({
             code:200,
             success:true,
-            message:'채팅 조회 성공'
+            message:'채팅방조회 성공',
+            data:{
+                chatRoom:result
+            }
         });
 
     }
     catch(err){
+        console.log(err);
         next(err);
     }
 }
 
-exports.createRoom=async(req,res,next)=>{
+
+exports.getChat=async(req,res,next)=>{
+
+    const page=req.page;
+    let roomId=req.params.roomId;
+    roomId=mongoose.mongo.ObjectId(roomId);
+
+    if(!roomId){
+        return res.json({
+            code:499,
+            success:false,
+            message:'없는 방아이디입니다.',
+        });
+    }
+    
+
+    try{
+
+        const exRoom=await Room.findOne({_id:roomId}).select('id');
+        if(!exRoom){
+            return res.json({
+                code:499,
+                success:false,
+                message:'없는 방아이디입니다.',
+            });
+        }
+
+        let chat=await Chat.find({roomId:roomId}).sort({"createdAt":-1}).skip(page*8).limit(8);
+        let result=[];
+
+        for(let _ of chat){
+            let ob={}
+            ob.message=_.message;
+            ob.userId=_.userId;
+            ob.createdAt=moment(_.createdAt).format('YY/MM/DD HH:mm');
+            result.push(ob);
+        }
+
+        return res.json({
+            code:200,
+            success:true,
+            message:'채팅조회성공',
+            data:{
+                chat:result
+            }
+        });
+
+    }
+    catch(err){
+        console.log(err);
+        next(err);
+    }
+}
+
+
+
+
+
+
+
+exports.createMessage=async(req,res,next)=>{
 
     let userId=req.id;
     const message=req.body.message;
     let receiverId=req.body.receiverId;
 
-    if(userId){
-        userId=mongoose.mongo.ObjectId(userId);
-    }
+ 
 
     if(receiverId){
         receiverId=mongoose.mongo.ObjectId(receiverId);
@@ -47,7 +154,7 @@ exports.createRoom=async(req,res,next)=>{
         })
     }
 
-    if(type(message)!='string'){
+    if(typeof(message)!='string'){
         return res.json({
             success:false,
             code:500,
@@ -56,18 +163,13 @@ exports.createRoom=async(req,res,next)=>{
     }
 
     try{
-        
-        const self=await User.findOne({_id:userId});
 
-        if(!self){
-            return res.json({
-                code:454,
-                success: false,
-                message: '없는 유저아이디입니다'
-            });
-        }
+     
         
-        const user=await User.findOne({_id:receiverId});
+        const self=await User.findOne({_id:userId}).select('_id displayName profileImgSrc');
+
+        
+        const user=await User.findOne({_id:receiverId}).select('_id');
 
         if(!user){
             return res.json({
@@ -76,8 +178,6 @@ exports.createRoom=async(req,res,next)=>{
                 message: '없는 유저아이디입니다'
             });
         }
-
-
 
         const exRoom=await Room.findOne({
             member:{
@@ -103,13 +203,22 @@ exports.createRoom=async(req,res,next)=>{
             const io=req.app.get('io');
             const {rooms}=io.of('/room').adapter;
 
+
+            const chatMessage={
+                message:message,
+                userId:userId,
+                createdAt:moment(new Date()).format('YY/MM/DD HH:mm')
+            }
+
+            io.of('/chat').emit('chat', chatMessage);
+
             if(rooms&&rooms[receiverId]){
-                io.of('/room').emit('create',{
+                io.of('/room').to(receiverId).emit('create',{
                     userId:self._id,
                     profileImgSrc:self.profileImgSrc,
                     displayName:self.displayName,
                     message:message,
-                    createdAt:moment(chat.createdAt).add(9,'h').format('YY/MM/DD HH:mm')
+                    createdAt:moment(chat.createdAt).format('YY/MM/DD HH:mm')
                 })
             }
         }
@@ -125,19 +234,34 @@ exports.createRoom=async(req,res,next)=>{
             const io=req.app.get('io');
             const {rooms}=io.of('/room').adapter;
 
+            const chatMessage={
+                message:message,
+                userId:userId,
+                createdAt:moment(new Date()).format('YY/MM/DD HH:mm')
+            }
+
+            io.of('/chat').emit('chat', chatMessage);
+
             if(rooms&&rooms[receiverId]){
-                io.of('/room').emit('update',{
+                io.of('/room').to(receiverId).emit('update',{
                     userId:self._id,
                     profileImgSrc:self.profileImgSrc,
                     displayName:self.displayName,
                     message:message,
-                    createdAt:moment(chat.createdAt).add(9,'h').format('YY/MM/DD HH:mm')
+                    createdAt:moment(chat.createdAt).format('YY/MM/DD HH:mm')
                 })
             }
 
         }
+
+        return res.json({
+            success:true,
+            code:200,
+            message:"메시진 전송 성공"
+        })
     }
     catch(err){
+        console.log(err);
         next(err);
     }
 }

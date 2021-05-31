@@ -1,5 +1,6 @@
-var mongoose = require('mongoose')
-require('dotenv').config();
+const mongoose=require("mongoose");
+require("dotenv").config();
+
 
 mongoose.connect(process.env.MONGO_URL, {
   useNewUrlParser: true,
@@ -14,3 +15,4 @@ const handleError = (error) => console.log(`❌ Error on DB Connection:${error}`
 
 db.once("open", handleOpen);
 db.on("error", handleError);
+

@@ -77,21 +77,20 @@ const verify = async (req, res, next) => {
     try{
 
         const verify=promisify(jwt.verify);
-        const token=await verify(token,process.env.JWT_SECRET);
+        const verifiedToken=await verify(token,process.env.JWT_SECRET);
 
-        const userId=await User.findOne({_id:token.id}).select('_id');
+        const userId=await User.findOne({_id:verifiedToken.id}).select('_id');
 
-        if(userId){
-            req.id=mongoose.mongo.ObjectId(userId);
+        if(userId._id){
+            req.id=mongoose.mongo.ObjectId(userId._id);
+            next();
         }
         else{
-            if(!user){
-                return res.json({
-                    success:false,
-                    code:454,
-                    message:'없는 유저아이디입니다'
-                });
-            }
+            return res.json({
+                success:false,
+                code:454,
+                message:'없는 유저아이디입니다'
+            });
         }
 
     }
@@ -107,3 +106,36 @@ const verify = async (req, res, next) => {
 };
 
 exports.verify = verify;
+
+
+
+const pager = async (req, res, next) => {
+
+    let page=req.query.page;
+
+    if(!page){
+        return res.json({
+            code:430,
+            isSuccess:false,
+            message:"페이지 번호를 입력해주세요"
+        })
+    }
+
+    let regexp=/[^0-9]/g;
+    let regres=page.search(regexp);
+    if(regres!=-1){
+        return res.json({
+            code:449,
+            isSuccess:false,
+            message:"페이지 번호는 숫자입니다"
+        })
+    }
+    page=Number(page);
+
+    req.page=page;
+
+    next();
+
+};
+
+exports.pager=pager;

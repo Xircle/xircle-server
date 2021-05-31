@@ -107,16 +107,9 @@ exports.getPost=async (req,res,next)=>{
     let postUserId=req.params.userId;
 
     const interest=req.query.interest;
-    let page=req.query.page;
+    const page=req.page;
 
     
-    if(!page){
-        return res.json({
-            code:430,
-            isSuccess:false,
-            message:"페이지 번호를 입력해주세요"
-        })
-    }
 
     if(!postUserId){
         return res.json({
@@ -127,17 +120,6 @@ exports.getPost=async (req,res,next)=>{
     }
     postUserId=mongoose.mongo.ObjectId(postUserId);
     
-
-    let regexp=/[^0-9]/g;
-    let regres=page.search(regexp);
-    if(regres!=-1){
-        return res.json({
-            code:449,
-            isSuccess:false,
-            message:"페이지 번호는 숫자입니다"
-        })
-    }
-    page=Number(page);
 
     if(!interest){
         return res.json({
@@ -360,29 +342,8 @@ exports.searchHashtag=async (req,res,next)=>{
 
     const userId=req.id;
 
-    let page=req.query.page;
+    const page=req.page;
     const hashtag=req.query.hashtag;
-
-    
-    if(!page){
-        return res.json({
-            code:430,
-            isSuccess:false,
-            message:"페이지 번호를 입력해주세요"
-        })
-    }
-    
-
-    let regexp=/[^0-9]/g;
-    let regres=page.search(regexp);
-    if(regres!=-1){
-        return res.json({
-            code:449,
-            isSuccess:false,
-            message:"페이지 번호는 숫자입니다"
-        })
-    }
-    page=Number(page);
 
 
     if(!hashtag){
@@ -436,29 +397,9 @@ exports.searchHashtag=async (req,res,next)=>{
 exports.searchPost=async (req,res,next)=>{
 
 
-    let page=req.query.page;
+    const page=req.page;
     const hashtag=req.query.hashtag;
 
-    
-    if(!page){
-        return res.json({
-            code:430,
-            isSuccess:false,
-            message:"페이지 번호를 입력해주세요"
-        })
-    }
-    
-
-    let regexp=/[^0-9]/g;
-    let regres=page.search(regexp);
-    if(regres!=-1){
-        return res.json({
-            code:449,
-            isSuccess:false,
-            message:"페이지 번호는 숫자입니다"
-        })
-    }
-    page=Number(page);
 
 
     if(!hashtag){

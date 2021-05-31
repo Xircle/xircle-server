@@ -127,7 +127,7 @@ exports.getProfile=async (req,res,next)=>{
 exports.getPost=async (req,res,next)=>{
 
     const interest=req.query.interest;
-    let page=req.query.page;
+    const page=req.page;
     const userId=mongoose.mongo.ObjectId(req.params.userId);
 
     if(!interest){
@@ -137,26 +137,7 @@ exports.getPost=async (req,res,next)=>{
             success:false
         })
     }
-    
-    if(!page){
-        return res.json({
-            code:430,
-            isSuccess:false,
-            message:"페이지 번호를 입력해주세요"
-        })
-    }
-    
-
-    let regexp=/[^0-9]/g;
-    let regres=page.search(regexp);
-    if(regres!=-1){
-        return res.json({
-            code:449,
-            isSuccess:false,
-            message:"페이지 번호는 숫자입니다"
-        })
-    }
-    page=Number(page);
+  
 
     if(!userId){
         return res.json({

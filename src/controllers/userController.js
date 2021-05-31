@@ -107,8 +107,8 @@ exports.follow=async (req,res,next)=>{
 exports.getUsers=async (req,res,next)=>{
    
     const userId=req.id;
-    let {page,age,university,location,gender}=req.query;
-
+    let {age,university,location,gender}=req.query;
+    const page=req.page;
     
     if(location){
         let regexp=/[^0-9]/g;
@@ -189,16 +189,6 @@ exports.getUsers=async (req,res,next)=>{
             });
         }
     }
-
-    if(!page){
-        return res.json({
-            success:false,
-            code:430,
-            message:'페이지를 입력해주세요'
-        });
-    }
-    page=Number(page);
-
     
 
     try{
