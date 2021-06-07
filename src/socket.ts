@@ -1,22 +1,24 @@
-const SocketIO = require('socket.io');
-let mongoose = require('mongoose');
+import mongoose from 'mongoose';
+import express from 'express';
+import http from 'http';
 
-module.exports = (server, app) => {
+const socket = (server:http.Server, app:express.Application) => {
    
-    const io = SocketIO(server,{cors:{origin:"*"}},{ path: '/socket.io'});
+    const io= require('socket.io')(server,{cors:{origin:"*"}},{ path: '/socket.io'});
 
     app.set('io', io);
     const room = io.of('/room');
     const chat = io.of('/chat');
 
-    room.on('connection', (socket) => {
+    room.on('connection', (socket:any) => {
         console.log('room 네임스페이스에 접속');
 
         const req = socket.request;
         const { headers: { referer } } = req;
+        let userId:string;
 
         if(referer&&referer.split('/')){
-          const userId = referer
+          userId = referer
           .split('/')[referer.split('/').length-2];
           socket.join(userId);
         }
@@ -28,16 +30,18 @@ module.exports = (server, app) => {
         });
     });
 
-    chat.on('connection', (socket) => {
+    chat.on('connection', (socket:any) => {
         console.log('chat 네임스페이스에 접속');
 
         const req = socket.request;
         const { headers: { referer } } = req;
-        
+
+        let roomId:string;
+
         if(referer&&referer.split('/')){
-          const userId = referer
+          roomId = referer
           .split('/')[referer.split('/').length-3];
-          socket.join(userId);
+          socket.join(roomId);
         }
 
         socket.on('disconnect', () => {
@@ -48,3 +52,5 @@ module.exports = (server, app) => {
 
 
 }
+
+export default socket;

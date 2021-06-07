@@ -1,15 +1,23 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose';
+
+interface Post extends mongoose.Document{
+    _id:string;
+    userId:string;
+    content:string;
+    createdAt:Date;
+    title:string;
+    uploadedPhoto:string[];
+    likeUserId:string[];
+    hashtags:string[];
+    extraHashtags:string[];
+}
 
 const PostSchema = new mongoose.Schema({
-
+    _id:mongoose.Schema.Types.ObjectId,
     userId : mongoose.Schema.Types.ObjectId,
-    
     content : String,
-
     createdAt : {type:Date , default: Date.now},
-
     title :String,
-
     uploadedPhoto : [
         {
             type: String
@@ -35,5 +43,5 @@ const PostSchema = new mongoose.Schema({
     ]
     
 })
-const model = mongoose.model("Post",PostSchema);
-module.exports = model;
+const model = mongoose.model<Post>("Post",PostSchema);
+export default  model;

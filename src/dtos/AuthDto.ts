@@ -1,4 +1,11 @@
-import {IsArray, IsBoolean, IsNotEmpty, IsNumber, IsString} from 'class-validator';
+import {
+    IsBoolean, IsMimeType,
+    IsNotEmpty,
+    IsNumber,
+    IsOptional,
+    IsString,
+} from 'class-validator';
+
 
 class CheckEmailDto{
 
@@ -51,27 +58,53 @@ class PostUserData{
     @IsBoolean()
     public isGraduate:boolean;
 
+    @IsOptional()
     @IsNumber()
     public latitude:number;
 
+    @IsOptional()
     @IsNumber()
     public longitude:number;
 
     @IsString()
     public password:string;
 
-    @IsArray()
+
+    @IsString({each:true})
     public interestArr:string[];
 }
 
 class PostUserDto{
 
-    @IsNotEmpty()
+    @IsMimeType()
     public profileImgSrc:any;
 
     @IsNotEmpty()
     public data:PostUserData;
 }
 
-export {CheckEmailDto,CheckNameDto,SendEmailDto,PostUserDto,PostUserData};
+class PostUserResDto{
+    public token:string;
+    public userId:string;
+
+    constructor(token:string,userId:string) {
+        this.token=token;
+        this.userId=userId;
+    }
+}
+
+class LoginUserDto{
+    @IsString()
+    public displayName:string;
+    @IsString()
+    public password:string;
+}
+
+class FindInfoDto{
+    @IsString()
+    public email:string;
+}
+
+
+export {CheckEmailDto,CheckNameDto,SendEmailDto,PostUserDto,PostUserData,PostUserResDto,LoginUserDto,FindInfoDto};
 

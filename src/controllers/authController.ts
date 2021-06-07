@@ -1,11 +1,13 @@
 import express from 'express';
-import {CheckEmailDto,CheckNameDto,SendEmailDto,PostUserDto,PostUserData} from '../dtos/AuthDto';
+import {CheckEmailDto,CheckNameDto,SendEmailDto,PostUserDto,PostUserData
+    ,PostUserResDto,LoginUserDto,FindInfoDto} from '../dtos/AuthDto';
 import {validationMiddleware,validationDataMiddleware} from '../utils/validation.middleware';
 import HttpException from '../utils/HttpException';
 import User from '../models/User';
-import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import SuccessDto from '../dtos/SuccessDto';
-
+import {encrypt,decrypt} from '../utils/function';
+import {upload,verify,resize} from '../utils/middleware';
 
 const webMails:string[] = ["snu.ac.kr","korea.ac.kr","yonsei.ac.kr","g.skku.edu","skku.edu","sogang.ac.kr","hanyang.ac.kr","kaist.ac.kr","postech.ac.kr"];
 const universitys:string[] = ["서울대학교","고려대학교","연세대학교","성균관대학교","성균관대학교","서강대학교","한양대학교","카이스트","포스텍"];
@@ -13,7 +15,7 @@ const authEmail=new Map<string,number>();
 
 
 class AuthController{
-    public path='/';
+
     public router=express.Router();
 
     constructor(){
@@ -21,11 +23,12 @@ class AuthController{
     }
 
     public initializeRoutes(){
-        this.router.post(this.path+'check/email',validationMiddleware(CheckEmailDto),this.checkEmail);
-        this.router.post(this.path+'check/name',validationMiddleware(CheckNameDto),this.checkName);
-        this.router.post(this.path+'email',validationMiddleware(SendEmailDto),this.sendEmail);
-        this.router.post(this.path+'user',validationMiddleware(PostUserDto),validationDataMiddleware(PostUserData),this.postUser);
-        
+        this.router.post('/check/email',validationMiddleware(CheckEmailDto),this.checkEmail);
+        this.router.post('/check/name',validationMiddleware(CheckNameDto),this.checkName);
+        this.router.post('/email',validationMiddleware(SendEmailDto),this.sendEmail);
+        this.router.post('/user',validationMiddleware(PostUserDto),upload.single('profileImgSrc'),validationDataMiddleware(PostUserData),this.postUser);
+        this.router.post('/login',validationMiddleware(LoginUserDto),resize,this.login);
+        this.router.post('/find/info',validationMiddleware(FindInfoDto),this.findInfo);
     }
 
         
@@ -110,7 +113,7 @@ class AuthController{
             const mailjet = require ('node-mailjet')
             .connect(process.env.MAIL_JET1, process.env.MAIL_JET2);
     
-            const request = mailjet
+            await mailjet
             .post("send", {'version': 'v3.1'})
             .request({
             "Messages":[
@@ -152,14 +155,10 @@ class AuthController{
                 `
                 }
             ]
-            })
-
-            request
-            .catch(() => {
-                return next(new HttpException(451,"메일전송 실패입니다"));
             });
-            
-    
+
+
+
             return res.json(new SuccessDto("메일전송 성공입니다"));
     
         }
@@ -169,13 +168,188 @@ class AuthController{
         }
     }
 
-    
+
 
     postUser=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+
+
+        const {
+            age,
+            gender,
+            job,
+            adj,
+            displayName,
+            email,
+            location,
+            phoneNumber,
+            isPublic,
+            isGraduate,
+            latitude,
+            longitude,
+            interestArr,
+        } = req.body.data;
+
+        let {password}=req.body.data;
+
+        const university=universitys[webMails.indexOf(email.split('@')[1])];
+
+        let position=[];
+        if(longitude&&latitude){
+            position.push(longitude);
+            position.push(latitude);
+        }
+
+
         try{
 
+            password=encrypt(password);
 
-            return res.json(new SuccessDto("유저 등록 성공"));
+            const user=await User.create({
+                age:age,
+                gender:gender,
+                university:university,
+                adj:adj,
+                job:job,
+                profileImgSrc:process.env.URL+req.file.filename,
+                introText:"",
+                displayName:displayName,
+                email:email,
+                phoneNumber:phoneNumber,
+                isPublic:isPublic,
+                isGraduate:isGraduate,
+                location:location,
+                hashtags:interestArr,
+                mainHashtags:interestArr,
+                followings:[],
+                followers:[],
+                blockedUsers:[],
+                resume:"",
+                workPlace:"",
+                password:password,
+                position:position,
+                isLocationPublic:true
+            });
+
+            const token = await jwt.sign(
+                {
+                    id: user._id
+                },
+                process.env.JWT_SECRET,
+                {
+                    expiresIn: '365d'
+                });
+
+            return res.json(new SuccessDto<PostUserResDto>("유저 등록 성공",new PostUserResDto(token,user._id.toString())));
+        }
+        catch(err){
+            console.log(err);
+            next(err);
+        }
+    }
+
+    login=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+        const {password,displayName}=req.body;
+
+        try{
+
+            const user=await User.findOne({displayName:displayName}).select('_id password');
+            if(!user){
+                return next(new HttpException(455,"존재하지않는 별명입니다"));
+            }
+
+            if(password===decrypt(user.password)){
+
+                const token = await jwt.sign(
+                    {
+                        id: user._id
+                    },
+                    process.env.JWT_SECRET,
+                    {
+                        expiresIn: '365d'
+                    });
+
+                return res.json(new SuccessDto<PostUserResDto>("로그인 성공",new PostUserResDto(token,user._id.toString())));
+            }
+            else{
+
+                return next(new HttpException(456,"비밀번호 불일치"));
+            }
+        }
+        catch(err){
+            console.log(err);
+            next(err);
+        }
+    }
+
+
+
+    findInfo=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+        const {email}=req.body;
+
+        if(!webMails.includes(email.split("@")[1])) {
+            return next(new HttpException(412, "학교이메일이 아닙니다."));
+        }
+
+        try{
+
+            const emailExist=await User.findOne({email:email});
+            if(!emailExist){
+                return next(new HttpException(457, "가입되지않은 이메일입니다"));
+            }
+
+
+            const mailjet = require ('node-mailjet')
+                .connect(process.env.MAIL_JET1, process.env.MAIL_JET2);
+
+            await mailjet
+                .post("send", {'version': 'v3.1'})
+                .request({
+                    "Messages":[
+                        {
+                            "From": {
+                                "Email": "hyunjong8723@gmail.com",
+                                "Name": "Xircle"
+                            },
+                            "To": [
+                                {
+                                    "Email": email
+                                }
+                            ],
+                            "Subject": "Xircle 메일",
+                            "HTMLPart": `
+            <section style="max-width: 480px; margin: 0 auto; padding: 24px 12px 12px; border: none; background: #ffffff;">
+            <div style="border: 3px solid black;"></div>
+            <div style="margin-top: 50px;">
+                <h1 style="font-size: 30px; font-weight: bold; line-height: 1.5;">
+                    XIRCLE <br/>
+                    기존의 닉네임과 비밀번호 입니다.
+                </h1>
+                
+            </div>
+            <div>
+                <p style="font-size: 15px; line-height: 1.5;">안녕하세요. 새로운 네트워킹 서비스 XIRCLE을 이용해 주셔서 감사합니다. <br/> 로그인을 진행해 주세요 :)</p>
+            </div>
+            <div style="text-align: center; margin-top: 100px;">
+                <div style="background-color: #F7F7FA; padding: 20px 120px; margin: 20px 0; border-radius: 13px; outline-style: none;">
+                    <span style="font-size: 22px; font-weight: 700;">${emailExist.displayName}</span>
+                </div>
+                <div style="background-color: #1F1F1F; padding: 20px 120px; border-radius: 13px; outline-style: none;">
+                    <span style="color: white; font-size: 22px; font-weight: 700;">${decrypt(emailExist.password)}</span>
+                </div>
+            </div>
+            <div style="text-align: center; margin: 50px 0;">
+                <p style="font-weight: 300;"> 문제가 있을 경우 카카오톡 채널[XIRCLE]로 문의주세요.</p>
+                <a style="color: #BFBFBF; font-size: 20px; font-weight: 700; text-decoration: none; " href="https://pf.kakao.com/_kDxhtK">고객센터 바로가기</a>
+            </div>
+        </section>
+    
+            `
+                        }
+                    ]
+                })
+
+            return res.json(new SuccessDto("메일전송 성공입니다."));
+
         }
         catch(err){
             console.log(err);

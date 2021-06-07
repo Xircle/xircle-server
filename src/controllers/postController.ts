@@ -1,4 +1,208 @@
-let User = require('../models/User');
+import express from "express";
+import {
+    validationDataMiddleware,
+    validationMiddleware,
+    validationParamsMiddleware,
+    validationQueryMiddleware
+} from "../utils/validation.middleware";
+import Post from '../models/Post';
+import User from '../models/User';
+import {
+    PostPostData,
+    PostPostDto,
+    GetPostResDto,
+    UpdatePostDto
+} from "../dtos/PostDto";
+import {
+    UserIdParamsDto,
+    InterestQueryDto,
+    PostIdParamsDto
+} from "../dtos/ElseDto"
+
+
+import {pager, resize, upload, verify} from "../utils/middleware";
+import HttpException from "../utils/HttpException";
+import SuccessDto from "../dtos/SuccessDto";
+const moment =require('moment');
+import fs from "fs";
+import path from "path";
+
+class PostController {
+
+    public router = express.Router();
+
+    constructor() {
+        this.initializeRoutes();
+    }
+
+    public initializeRoutes() {
+        this.router.post( "/post", validationMiddleware(PostPostDto),validationDataMiddleware(PostPostData)
+            ,upload.single('articleImgSrc'),resize,this.postPost);
+
+        this.router.get( "/post/user/:userId",validationParamsMiddleware(UserIdParamsDto),
+            validationQueryMiddleware(InterestQueryDto),verify,pager,this.getPost);
+
+        this.router.put("/post/:postId",validationMiddleware(UpdatePostDto),validationDataMiddleware(PostPostData)
+            ,validationParamsMiddleware(PostIdParamsDto),upload.single('articleImgSrc'),resize,this.updatePost);
+
+        this.router.delete('post/:postId',validationParamsMiddleware(PostIdParamsDto),verify,this.deletePost);
+    }
+
+    postPost=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+
+        const userId=res.locals.id;
+
+        const {articleContent,articleInterest,articleTitle}=req.body.data;
+        let {articleTagArr}=req.body.data;
+
+        if(!articleTagArr) articleTagArr=[];
+
+        if(!req.file||!req.file.filename){
+            return next(new HttpException(431,"게시물 사진을 입력해주세요"));
+        }
+
+        try{
+            await Post.create({
+                userId:userId,
+                content:articleContent,
+                title:articleTitle,
+                uploadedPhoto:[process.env.URL+req.file.filename],
+                likeUserId:[],
+                hashtags:articleInterest,
+                extraHashtags:articleTagArr
+            })
+
+            return res.json(new SuccessDto("게시물 작성 성공"));
+
+        }
+        catch(err){
+            console.log(err);
+            next(err);
+        }
+
+    }
+
+
+
+    getPost=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+
+
+        const postUserId=req.params.userId;
+        const interest=req.query.interest;
+        const page=res.locals.page;
+
+
+        try{
+
+            const postUser=await User.findOne({_id:postUserId});
+
+            if(!postUser){
+                return next(new HttpException(454,"없는 유저아이디입니다"));
+            }
+
+
+            const post=await Post.find({
+                userId:postUserId,
+                hashtags:{
+                    $elemMatch:{$eq:interest}
+                }
+            }).skip(8*page).limit(8).select('content createdAt title uploadedPhoto extraHashtags _id')
+
+            let result:GetPostResDto[]=[];
+
+            for(let _ of post){
+                const ob:GetPostResDto=new GetPostResDto(_.uploadedPhoto[0],_._id,_.title,_.content,
+                    moment(_.createdAt).add(9,'h').format('YY/MM/DD HH:mm'));
+                result.push(ob);
+            }
+
+            return res.json(new SuccessDto<GetPostResDto[]>("게시물 조회 성공",result));
+
+        }
+        catch(err){
+            console.log(err);
+            next(err);
+        }
+
+    }
+
+
+
+
+    updatePost=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+
+        const userId=res.locals.id;
+
+        let postId=req.params.postId;
+
+        const {articleContent,articleInterest,articleTitle}=req.body.data;
+
+
+        try{
+
+            const post=await Post.findOne({_id:postId}).select('uploadedPhoto');
+
+            if(!post){
+                return next(new HttpException(454,"없는 게시물아이디입니다"));
+            }
+
+            let articleImgSrc;
+
+            if(req.file){
+                articleImgSrc=[process.env.URL+req.file.filename];
+                fs.unlinkSync(path.join(__dirname,`../../uploads/${post.uploadedPhoto[0].split('/').pop()}`));
+            }
+            else{
+                articleImgSrc=[post.uploadedPhoto[0]];
+            }
+
+            await Post.findOneAndUpdate({
+                userId:userId
+            },{
+                content:articleContent,
+                title:articleTitle,
+                uploadedPhoto:articleImgSrc,
+                likeUserId:[],
+                hashtags:articleInterest
+            })
+
+
+            return res.json(new SuccessDto("게시물 수정 성공"));
+        }
+        catch(err){
+            console.log(err);
+            next(err);
+        }
+
+    }
+
+
+    deletePost=async (req:express.Request,res:express.Response,next:express.NextFunction)=>{
+
+        let postId=req.params.postId;
+
+
+        try{
+
+            await Post.deleteOne({_id:postId});
+
+            return res.json(new SuccessDto("게시물 삭제 성공"));
+        }
+        catch(err){
+            console.log(err);
+            next(err);
+        }
+
+    }
+
+
+
+
+}
+
+export default PostController;
+
+/*let User = require('../models/User');
 let Post = require('../models/Post');
 let mongoose = require('mongoose');
 const moment=require('moment');
@@ -458,6 +662,6 @@ exports.searchPost=async (req,res,next)=>{
     }
 
 }
-
+*/
 
 

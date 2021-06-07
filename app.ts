@@ -52,25 +52,30 @@ import cors from 'cors';
 import methodOverride from 'method-override';
 import mongoose from 'mongoose';
 import 'dotenv/config'
+import webSocket from "./src/socket";
+import http from 'http';
 
 import errorMiddleware from './src/utils/error.middleware';
-import Controller from './src/routers/controller.interface';
-import HttpException from './src/utils/HttpException';
+import Controller from './src/controllers/controller.interface';
+
+
 
 
 class App{
     public app:express.Application;
+    public server:http.Server;
 
     constructor(controllers:Controller[]){
         this.app=express();
         this.initializeMiddlewares();
         this.connectDatabase();
+        this.initializeSocket();
         this.initializeControllers(controllers);
         this.initializeErrorHandling();
     }
 
     public listen(){
-        this.app.listen(process.env.PORT,()=>{
+        this.server=this.app.listen(process.env.PORT,()=>{
             console.log(`App listening on port ${process.env.PORT}`);
         })
     }
@@ -92,12 +97,14 @@ class App{
 
 
     private connectDatabase(){
-        mongoose.connect(process.env.MONGO_URI!,{
+        mongoose.connect(process.env.MONGO_URI,{
             useNewUrlParser: true,
-            useUnifiedTopology: true 
-        },(err)=>{
-            console.log(err);
+            useUnifiedTopology: true
         });
+    }
+
+    private initializeSocket(){
+        webSocket(this.server, this.app);
     }
 
     private initializeErrorHandling() {

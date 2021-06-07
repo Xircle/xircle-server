@@ -1,8 +1,36 @@
 import mongoose from 'mongoose';
 
+interface User extends mongoose.Document{
+    _id:string;
+    age : number;
+    adj: string;
+    profileImgSrc : string;
+    gender : string;
+    introText : string;
+    job: string;
+    displayName : string;
+    email : string;
+    location : string;
+    university: string;
+    createdAt : Date;
+    hashtags : string[];
+    mainHashtags:string[];
+    followings :string[];
+    followers : string[];
+    blockedUsers:string[];
+    isPublic:boolean;
+    isGraduate:boolean;
+    phoneNumber:string;
+    workPlace:string;
+    resume:string;
+    password:string;
+    isLocationPublic:boolean;
+    position:number[];
+
+}
 
 const UserSchema = new mongoose.Schema({
-    
+    _id: mongoose.Schema.Types.ObjectId,
     age : Number, 
     adj: String,
     profileImgSrc : String, 
@@ -52,6 +80,6 @@ const UserSchema = new mongoose.Schema({
     isLocationPublic:Boolean,
     position:[{type:Number}]
 })
-const model = mongoose.model("User",UserSchema);
+const model = mongoose.model<User>("User",UserSchema);
 
 export default model;
